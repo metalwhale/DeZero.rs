@@ -1,0 +1,8 @@
+version: "3"
+services:
+  dezero:
+    build: ./dezero
+    volumes:
+      - ../:/usr/src/DeZero.rs
+    tty: true
+    working_dir: /usr/src/DeZero.rs/dezero
