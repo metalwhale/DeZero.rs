@@ -42,9 +42,22 @@ impl Pass for SquarePass {
 }
 type Square = Function<SquarePass>;
 
+#[derive(Default)]
+struct ExpPass {}
+impl Pass for ExpPass {
+    fn forward<F: Float>(&self, x: F) -> F {
+        return x.exp();
+    }
+}
+type Exp = Function<ExpPass>;
+
 fn main() {
-    let x = Variable { data: 10.0 };
-    let f = Square::default();
-    let y = f.call(x);
+    let a = Square::default();
+    let b = Exp::default();
+    let c = Square::default();
+    let x = Variable { data: 0.5 };
+    let a = a.call(x);
+    let b = b.call(a);
+    let y = c.call(b);
     println!("{}", y.data);
 }
