@@ -1,31 +1,25 @@
 use num_traits::Float;
 
-struct Variable<F: Float> {
-    data: F,
+struct Variable<D: Float> {
+    data: D,
 }
 
 trait Pass {
-    fn forward<F: Float>(&self, x: F) -> F;
+    fn forward<D: Float>(&self, x: D) -> D;
 }
 
 struct Function<P: Pass> {
     pass: P,
 }
-impl<P> Function<P>
-where
-    P: Pass,
-{
-    fn call<F: Float>(&self, input: Variable<F>) -> Variable<F> {
+impl<P: Pass> Function<P> {
+    fn call<D: Float>(&self, input: Variable<D>) -> Variable<D> {
         let x = input.data;
         let y = self.pass.forward(x);
         let output = Variable { data: y };
         return output;
     }
 }
-impl<P> Default for Function<P>
-where
-    P: Pass + Default,
-{
+impl<P: Pass + Default> Default for Function<P> {
     fn default() -> Self {
         Function {
             pass: Default::default(),
@@ -34,27 +28,25 @@ where
 }
 
 #[derive(Default)]
-struct SquarePass {}
-impl Pass for SquarePass {
-    fn forward<F: Float>(&self, x: F) -> F {
+struct Square {}
+impl Pass for Square {
+    fn forward<D: Float>(&self, x: D) -> D {
         return x.powi(2);
     }
 }
-type Square = Function<SquarePass>;
 
 #[derive(Default)]
-struct ExpPass {}
-impl Pass for ExpPass {
-    fn forward<F: Float>(&self, x: F) -> F {
+struct Exp {}
+impl Pass for Exp {
+    fn forward<D: Float>(&self, x: D) -> D {
         return x.exp();
     }
 }
-type Exp = Function<ExpPass>;
 
 fn main() {
-    let a = Square::default();
-    let b = Exp::default();
-    let c = Square::default();
+    let a = Function::<Square>::default();
+    let b = Function::<Exp>::default();
+    let c = Function::<Square>::default();
     let x = Variable { data: 0.5 };
     let a = a.call(x);
     let b = b.call(a);
