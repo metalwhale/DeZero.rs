@@ -13,3 +13,4 @@
 - Install VSCode extensions inside the container:
   - `tamasfe.even-better-toml`: [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
   - `matklad.rust-analyzer`: [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer)
+  - `vadimcn.vscode-lldb`: [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
