@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 struct Variable<'a, D: Float> {
     data: D,
     grad: Option<D>,
-    creator: Option<(Rc<RefCell<Variable<'a, D>>>, &'a dyn Function<D>)>,
+    creator: Option<Calculation<'a, D>>,
 }
 impl<'a, D: Float> Variable<'a, D> {
     fn new(data: D) -> Rc<RefCell<Self>> {
@@ -15,13 +15,16 @@ impl<'a, D: Float> Variable<'a, D> {
         }))
     }
 
-    fn set_creator(&mut self, var: Rc<RefCell<Variable<'a, D>>>, func: &'a dyn Function<D>) {
-        self.creator = Some((var, func));
+    fn set_creator(&mut self, input: Rc<RefCell<Variable<'a, D>>>, function: &'a dyn Function<D>) {
+        self.creator = Some(Calculation { input, function });
     }
 
     fn backward(&self) -> Result<(), ()> {
         match self.creator {
-            Some((ref x, f)) => match self.grad {
+            Some(Calculation {
+                input: ref x,
+                function: f,
+            }) => match self.grad {
                 Some(grad) => {
                     let mut x = x.borrow_mut();
                     x.grad = Some(f.backward(x.data, grad));
@@ -48,6 +51,11 @@ trait Function<D: Float> {
 
     fn forward(&self, x: D) -> D;
     fn backward(&self, x: D, gy: D) -> D;
+}
+
+struct Calculation<'a, D: Float> {
+    input: Rc<RefCell<Variable<'a, D>>>,
+    function: &'a dyn Function<D>,
 }
 
 struct Square {}
