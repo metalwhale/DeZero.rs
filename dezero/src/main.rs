@@ -38,10 +38,11 @@ impl<'a, D: Float> Variable<'a, D> {
 }
 
 trait Function<D: Float> {
-    fn call<'a>(&'a self, input: Rc<RefCell<Variable<'a, D>>>) -> Rc<RefCell<Variable<'a, D>>>
+    fn call<'a>(&'a self, input: &Rc<RefCell<Variable<'a, D>>>) -> Rc<RefCell<Variable<'a, D>>>
     where
         Self: Sized,
     {
+        let input = Rc::clone(input);
         let x = input.borrow().data;
         let y = self.forward(x);
         let output = Variable::new(y);
@@ -87,12 +88,12 @@ fn main() {
     let b = Exp {};
     let c = Square {};
     let x = Variable::new(0.5);
-    let m = a.call(x.clone());
-    let n = b.call(m.clone());
-    let y = c.call(n.clone());
+    let m = a.call(&x);
+    let n = b.call(&m);
+    let y = c.call(&n);
     let mut y = y.borrow_mut();
     y.grad = Some(1.0);
     if let Ok(_) = y.backward() {
-        println!("{}", x.clone().borrow().grad.unwrap());
+        println!("{}", x.borrow().grad.unwrap());
     }
 }
