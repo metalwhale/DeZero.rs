@@ -1,33 +1,32 @@
 use num_traits::Float;
-use std::{cell::RefCell, rc::Rc};
+use std::cell::Cell;
 
 struct Variable<'a, D: Float> {
     data: D,
-    grad: Option<D>,
+    grad: Cell<Option<D>>,
     creator: Option<Calculation<'a, D>>,
 }
 impl<'a, D: Float> Variable<'a, D> {
-    fn new(data: D) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
+    fn new(data: D) -> Self {
+        Self {
             data,
-            grad: None,
+            grad: Cell::new(None),
             creator: None,
-        }))
+        }
     }
 
-    fn set_creator(&mut self, input: Rc<RefCell<Variable<'a, D>>>, function: &'a dyn Function<D>) {
+    fn set_creator(&mut self, input: &'a Variable<'a, D>, function: &'a dyn Function<D>) {
         self.creator = Some(Calculation { input, function });
     }
 
     fn backward(&self) -> Result<(), ()> {
         match self.creator {
             Some(Calculation {
-                input: ref x,
+                input: x,
                 function: f,
-            }) => match self.grad {
+            }) => match self.grad.get() {
                 Some(grad) => {
-                    let mut x = x.borrow_mut();
-                    x.grad = Some(f.backward(x.data, grad));
+                    x.grad.set(Some(f.backward(x.data, grad)));
                     x.backward()
                 }
                 None => Err(()),
@@ -38,15 +37,14 @@ impl<'a, D: Float> Variable<'a, D> {
 }
 
 trait Function<D: Float> {
-    fn call<'a>(&'a self, input: &Rc<RefCell<Variable<'a, D>>>) -> Rc<RefCell<Variable<'a, D>>>
+    fn call<'a>(&'a self, input: &'a Variable<'a, D>) -> Variable<'a, D>
     where
         Self: Sized,
     {
-        let input = Rc::clone(input);
-        let x = input.borrow().data;
+        let x = input.data;
         let y = self.forward(x);
-        let output = Variable::new(y);
-        output.borrow_mut().set_creator(input, self);
+        let mut output = Variable::new(y);
+        output.set_creator(input, self);
         return output;
     }
 
@@ -55,7 +53,7 @@ trait Function<D: Float> {
 }
 
 struct Calculation<'a, D: Float> {
-    input: Rc<RefCell<Variable<'a, D>>>,
+    input: &'a Variable<'a, D>,
     function: &'a dyn Function<D>,
 }
 
@@ -91,9 +89,8 @@ fn main() {
     let m = a.call(&x);
     let n = b.call(&m);
     let y = c.call(&n);
-    let mut y = y.borrow_mut();
-    y.grad = Some(1.0);
+    y.grad.set(Some(1.0));
     if let Ok(_) = y.backward() {
-        println!("{}", x.borrow().grad.unwrap());
+        println!("{}", x.grad.get().unwrap());
     }
 }
