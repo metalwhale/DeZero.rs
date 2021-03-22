@@ -20,18 +20,29 @@ impl<'a, D: Float> Variable<'a, D> {
     }
 
     fn backward(&self) -> Result<(), ()> {
-        match self.creator {
-            Some(Calculation {
-                input: x,
-                function: f,
-            }) => match self.grad.get() {
-                Some(grad) => {
-                    x.grad.set(Some(f.backward(x.data, grad)));
-                    x.backward()
+        match self.grad.get() {
+            Some(grad) => {
+                let mut calcs = vec![];
+                if let Some(creator) = &self.creator {
+                    calcs.push((creator, grad));
                 }
-                None => Err(()),
-            },
-            None => Ok(()),
+                while let Some((
+                    Calculation {
+                        input: x,
+                        function: f,
+                    },
+                    gy,
+                )) = calcs.pop()
+                {
+                    let grad = f.backward(x.data, gy);
+                    x.grad.set(Some(grad));
+                    if let Some(creator) = &x.creator {
+                        calcs.push((creator, grad));
+                    }
+                }
+                Ok(())
+            }
+            None => Err(()),
         }
     }
 }
