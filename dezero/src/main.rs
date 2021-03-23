@@ -19,30 +19,24 @@ impl<'a, D: Float> Variable<'a, D> {
         self.creator = Some(Calculation { input, function });
     }
 
-    fn backward(&self) -> Result<(), ()> {
-        match self.grad.get() {
-            Some(grad) => {
-                let mut calcs = vec![];
-                if let Some(creator) = &self.creator {
-                    calcs.push((creator, grad));
-                }
-                while let Some((
-                    Calculation {
-                        input: x,
-                        function: f,
-                    },
-                    gy,
-                )) = calcs.pop()
-                {
-                    let grad = f.backward(x.data, gy);
-                    x.grad.set(Some(grad));
-                    if let Some(creator) = &x.creator {
-                        calcs.push((creator, grad));
-                    }
-                }
-                Ok(())
+    fn backward(&self) {
+        let mut calcs = vec![];
+        let mut x = self;
+        let mut grad = match self.grad.get() {
+            Some(g) => g,
+            None => D::from(1).unwrap(),
+        };
+        loop {
+            x.grad.set(Some(grad));
+            if let Some(creator) = &x.creator {
+                calcs.push((creator, grad));
             }
-            None => Err(()),
+            if let Some((Calculation { input, function: f }, gy)) = calcs.pop() {
+                x = input;
+                grad = f.backward(x.data, gy);
+            } else {
+                break;
+            }
         }
     }
 }
@@ -92,16 +86,16 @@ impl<D: Float> Function<D> for Exp {
     }
 }
 
+fn square<'a, D: Float>(x: &'a Variable<'a, D>) -> Variable<'a, D> {
+    return Square {}.call(x);
+}
+
+fn exp<'a, D: Float>(x: &'a Variable<'a, D>) -> Variable<'a, D> {
+    return Exp {}.call(x);
+}
+
 fn main() {
-    let a = Square {};
-    let b = Exp {};
-    let c = Square {};
     let x = Variable::new(0.5);
-    let m = a.call(&x);
-    let n = b.call(&m);
-    let y = c.call(&n);
-    y.grad.set(Some(1.0));
-    if let Ok(_) = y.backward() {
-        println!("{}", x.grad.get().unwrap());
-    }
+    square(&exp(&square(&x))).backward();
+    println!("{}", x.grad.get().unwrap());
 }
