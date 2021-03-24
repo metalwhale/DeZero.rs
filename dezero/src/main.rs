@@ -1,13 +1,13 @@
 use num_traits::Float;
 use std::cell::Cell;
 
-struct Variable<'a, D: Float> {
-    data: D,
-    grad: Cell<Option<D>>,
-    creator: Option<Calculation<'a, D>>,
+struct Variable<'c, N: Float> {
+    data: N,
+    grad: Cell<Option<N>>,
+    creator: Option<Calculation<'c, N>>,
 }
-impl<'a, D: Float> Variable<'a, D> {
-    fn new(data: D) -> Self {
+impl<'c, N: Float> Variable<'c, N> {
+    fn new(data: N) -> Self {
         Self {
             data,
             grad: Cell::new(None),
@@ -15,7 +15,7 @@ impl<'a, D: Float> Variable<'a, D> {
         }
     }
 
-    fn set_creator(&mut self, input: &'a Variable<'a, D>, function: &'a dyn Function<D>) {
+    fn set_creator(&mut self, input: &'c Variable<'c, N>, function: &'c dyn Function<N>) {
         self.creator = Some(Calculation { input, function });
     }
 
@@ -24,7 +24,7 @@ impl<'a, D: Float> Variable<'a, D> {
         let mut x = self;
         let mut grad = match self.grad.get() {
             Some(g) => g,
-            None => D::from(1).unwrap(),
+            None => N::one(),
         };
         loop {
             x.grad.set(Some(grad));
@@ -41,8 +41,8 @@ impl<'a, D: Float> Variable<'a, D> {
     }
 }
 
-trait Function<D: Float> {
-    fn call<'a>(&'a self, input: &'a Variable<'a, D>) -> Variable<'a, D>
+trait Function<N: Float> {
+    fn call<'c>(&'c self, input: &'c Variable<'c, N>) -> Variable<'c, N>
     where
         Self: Sized,
     {
@@ -53,45 +53,45 @@ trait Function<D: Float> {
         return output;
     }
 
-    fn forward(&self, x: D) -> D;
-    fn backward(&self, x: D, gy: D) -> D;
+    fn forward(&self, x: N) -> N;
+    fn backward(&self, x: N, gy: N) -> N;
 }
 
-struct Calculation<'a, D: Float> {
-    input: &'a Variable<'a, D>,
-    function: &'a dyn Function<D>,
+struct Calculation<'c, N: Float> {
+    input: &'c Variable<'c, N>,
+    function: &'c dyn Function<N>,
 }
 
-struct Square {}
-impl<D: Float> Function<D> for Square {
-    fn forward(&self, x: D) -> D {
+struct Square;
+impl<N: Float> Function<N> for Square {
+    fn forward(&self, x: N) -> N {
         return x.powi(2);
     }
 
-    fn backward(&self, x: D, gy: D) -> D {
-        let gx = D::from(2).unwrap() * x * gy;
+    fn backward(&self, x: N, gy: N) -> N {
+        let gx = N::from(2).unwrap() * x * gy;
         return gx;
     }
 }
 
-struct Exp {}
-impl<D: Float> Function<D> for Exp {
-    fn forward(&self, x: D) -> D {
+struct Exp;
+impl<N: Float> Function<N> for Exp {
+    fn forward(&self, x: N) -> N {
         return x.exp();
     }
 
-    fn backward(&self, x: D, gy: D) -> D {
+    fn backward(&self, x: N, gy: N) -> N {
         let gx = x.exp() * gy;
         return gx;
     }
 }
 
-fn square<'a, D: Float>(x: &'a Variable<'a, D>) -> Variable<'a, D> {
-    return Square {}.call(x);
+fn square<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
+    return Square.call(x);
 }
 
-fn exp<'a, D: Float>(x: &'a Variable<'a, D>) -> Variable<'a, D> {
-    return Exp {}.call(x);
+fn exp<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
+    return Exp.call(x);
 }
 
 fn main() {
