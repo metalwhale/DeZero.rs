@@ -7,16 +7,12 @@ struct Variable<'c, N: Float> {
     creator: Option<Calculation<'c, N>>,
 }
 impl<'c, N: Float> Variable<'c, N> {
-    fn new(data: N) -> Self {
+    fn new(data: N, creator: Option<Calculation<'c, N>>) -> Self {
         Self {
             data,
             grad: Cell::new(None),
-            creator: None,
+            creator,
         }
-    }
-
-    fn set_creator(&mut self, input: &'c Variable<'c, N>, function: &'c dyn Function<N>) {
-        self.creator = Some(Calculation { input, function });
     }
 
     fn backward(&self) {
@@ -48,8 +44,13 @@ trait Function<N: Float> {
     {
         let x = input.data;
         let y = self.forward(x);
-        let mut output = Variable::new(y);
-        output.set_creator(input, self);
+        let output = Variable::new(
+            y,
+            Some(Calculation {
+                input,
+                function: self,
+            }),
+        );
         return output;
     }
 
@@ -95,7 +96,7 @@ fn exp<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
 }
 
 fn main() {
-    let x = Variable::new(0.5);
+    let x = Variable::new(0.5, None);
     square(&exp(&square(&x))).backward();
     println!("{}", x.grad.get().unwrap());
 }
