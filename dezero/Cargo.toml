@@ -5,4 +5,5 @@ authors = []
 edition = "2018"
 
 [dependencies]
+ndarray = "0.15.0"
 num-traits = "0.2.14"

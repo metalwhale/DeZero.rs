@@ -1,13 +1,14 @@
+use ndarray::{arr0, ArrayD};
 use num_traits::Float;
 use std::cell::Cell;
 
 struct Variable<'c, N: Float> {
-    data: N,
-    grad: Cell<Option<N>>,
+    data: ArrayD<N>,
+    grad: Cell<Option<ArrayD<N>>>,
     creator: Option<Calculation<'c, N>>,
 }
 impl<'c, N: Float> Variable<'c, N> {
-    fn new(data: N, creator: Option<Calculation<'c, N>>) -> Self {
+    fn new(data: ArrayD<N>, creator: Option<Calculation<'c, N>>) -> Self {
         Self {
             data,
             grad: Cell::new(None),
@@ -18,18 +19,18 @@ impl<'c, N: Float> Variable<'c, N> {
     fn backward(&self) {
         let mut calcs = vec![];
         let mut x = self;
-        let mut grad = match self.grad.get() {
+        let mut grad = match self.grad.take() {
             Some(g) => g,
-            None => N::one(),
+            None => ArrayD::ones(x.data.raw_dim()),
         };
         loop {
-            x.grad.set(Some(grad));
+            x.grad.set(Some(grad.clone()));
             if let Some(creator) = &x.creator {
                 calcs.push((creator, grad));
             }
             if let Some((Calculation { input, function: f }, gy)) = calcs.pop() {
                 x = input;
-                grad = f.backward(x.data, gy);
+                grad = f.backward(&x.data, &gy);
             } else {
                 break;
             }
@@ -42,7 +43,7 @@ trait Function<N: Float> {
     where
         Self: Sized,
     {
-        let x = input.data;
+        let x = &input.data;
         let y = self.forward(x);
         let output = Variable::new(
             y,
@@ -54,8 +55,8 @@ trait Function<N: Float> {
         return output;
     }
 
-    fn forward(&self, x: N) -> N;
-    fn backward(&self, x: N, gy: N) -> N;
+    fn forward(&self, x: &ArrayD<N>) -> ArrayD<N>;
+    fn backward(&self, x: &ArrayD<N>, gy: &ArrayD<N>) -> ArrayD<N>;
 }
 
 struct Calculation<'c, N: Float> {
@@ -65,24 +66,25 @@ struct Calculation<'c, N: Float> {
 
 struct Square;
 impl<N: Float> Function<N> for Square {
-    fn forward(&self, x: N) -> N {
-        return x.powi(2);
+    fn forward(&self, x: &ArrayD<N>) -> ArrayD<N> {
+        return x.mapv(|n| n.powi(2));
     }
 
-    fn backward(&self, x: N, gy: N) -> N {
-        let gx = N::from(2).unwrap() * x * gy;
+    fn backward(&self, x: &ArrayD<N>, gy: &ArrayD<N>) -> ArrayD<N> {
+        let two = N::from(2).unwrap();
+        let gx = x.mapv(|n| two * n) * gy;
         return gx;
     }
 }
 
 struct Exp;
 impl<N: Float> Function<N> for Exp {
-    fn forward(&self, x: N) -> N {
-        return x.exp();
+    fn forward(&self, x: &ArrayD<N>) -> ArrayD<N> {
+        return x.mapv(N::exp);
     }
 
-    fn backward(&self, x: N, gy: N) -> N {
-        let gx = x.exp() * gy;
+    fn backward(&self, x: &ArrayD<N>, gy: &ArrayD<N>) -> ArrayD<N> {
+        let gx = x.mapv(N::exp) * gy;
         return gx;
     }
 }
@@ -96,7 +98,7 @@ fn exp<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
 }
 
 fn main() {
-    let x = Variable::new(0.5, None);
+    let x = Variable::new(arr0(0.5).into_dyn(), None);
     square(&exp(&square(&x))).backward();
-    println!("{}", x.grad.get().unwrap());
+    println!("{}", x.grad.into_inner().unwrap());
 }
