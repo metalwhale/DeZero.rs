@@ -1,17 +1,17 @@
 use ndarray::{arr0, ArrayD};
 use num_traits::Float;
-use std::cell::Cell;
+use std::cell::RefCell;
 
 struct Variable<'c, N: Float> {
     data: ArrayD<N>,
-    grad: Cell<Option<ArrayD<N>>>,
+    grad: RefCell<Option<ArrayD<N>>>,
     creator: Option<Calculation<'c, N>>,
 }
 impl<'c, N: Float> Variable<'c, N> {
     fn new(data: ArrayD<N>, creator: Option<Calculation<'c, N>>) -> Self {
         Self {
             data,
-            grad: Cell::new(None),
+            grad: RefCell::new(None),
             creator,
         }
     }
@@ -19,12 +19,12 @@ impl<'c, N: Float> Variable<'c, N> {
     fn backward(&self) {
         let mut calcs = vec![];
         let mut x = self;
-        let mut grad = match self.grad.take() {
+        let mut grad = match self.grad.borrow().clone() {
             Some(g) => g,
             None => ArrayD::ones(x.data.raw_dim()),
         };
         loop {
-            x.grad.set(Some(grad.clone()));
+            x.grad.replace(Some(grad.clone()));
             if let Some(creator) = &x.creator {
                 calcs.push((creator, grad));
             }
@@ -100,5 +100,5 @@ fn exp<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
 fn main() {
     let x = Variable::new(arr0(0.5).into_dyn(), None);
     square(&exp(&square(&x))).backward();
-    println!("{}", x.grad.into_inner().unwrap());
+    println!("{}", x.grad.borrow().as_ref().unwrap());
 }
