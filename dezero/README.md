@@ -2,5 +2,5 @@
 
 ## How to run
 ```
-$ cargo run
+$ cargo test
 ```
