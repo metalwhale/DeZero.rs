@@ -8,11 +8,11 @@ pub struct Variable<'c, N: Float> {
     creator: Option<Calculation<'c, N>>,
 }
 impl<'c, N: Float> Variable<'c, N> {
-    pub fn new<D: Dimension>(data: Array<N, D>, creator: Option<Calculation<'c, N>>) -> Self {
+    pub fn new<D: Dimension>(data: Array<N, D>) -> Self {
         Self {
             data: data.into_dyn(),
             grad: RefCell::new(None),
-            creator,
+            creator: None,
         }
     }
 
@@ -49,13 +49,11 @@ trait Function<N: Float> {
     {
         let xs = inputs.iter().map(|i| &i.data).collect::<Vec<_>>();
         let y = self.forward(&xs);
-        let output = Variable::new(
-            y,
-            Some(Calculation {
-                inputs: inputs.to_vec(),
-                function: self,
-            }),
-        );
+        let mut output = Variable::new(y);
+        output.creator = Some(Calculation {
+            inputs: inputs.to_vec(),
+            function: self,
+        });
         return output;
     }
 
@@ -63,7 +61,7 @@ trait Function<N: Float> {
     fn backward(&self, xs: &[&ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>>;
 }
 
-pub struct Calculation<'c, N: Float> {
+struct Calculation<'c, N: Float> {
     inputs: Vec<&'c Variable<'c, N>>,
     function: &'c dyn Function<N>,
 }
@@ -108,8 +106,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let x = Variable::new(arr0(2.0), None);
-        let y = Variable::new(arr0(3.0), None);
+        let x = Variable::new(arr0(2.0));
+        let y = Variable::new(arr0(3.0));
         let sx = square(&x);
         let sy = square(&y);
         let z = add(&sx, &sy);
