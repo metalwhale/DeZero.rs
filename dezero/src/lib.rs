@@ -54,7 +54,7 @@ trait Function<N: Float> {
             inputs: inputs.to_vec(),
             function: self,
         });
-        return output;
+        output
     }
 
     fn forward(&self, xs: &[&ArrayD<N>]) -> ArrayD<N>;
@@ -69,34 +69,32 @@ struct Calculation<'c, N: Float> {
 struct Square;
 impl<N: Float> Function<N> for Square {
     fn forward(&self, xs: &[&ArrayD<N>]) -> ArrayD<N> {
-        let y = xs[0].mapv(|n| n.powi(2));
-        return y;
+        xs[0].mapv(|n| n.powi(2))
     }
 
     fn backward(&self, xs: &[&ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
         let x = xs[0];
         let two = N::from(2).unwrap();
         let gx = x.mapv(|n| two * n) * gy;
-        return vec![gx];
+        vec![gx]
     }
 }
 pub fn square<'c, N: Float>(x: &'c Variable<'c, N>) -> Variable<'c, N> {
-    return Square.call(&[x]);
+    Square.call(&[x])
 }
 
 struct Add;
 impl<N: Float> Function<N> for Add {
     fn forward(&self, xs: &[&ArrayD<N>]) -> ArrayD<N> {
-        let y = xs[0] + xs[1];
-        return y;
+        xs[0] + xs[1]
     }
 
     fn backward(&self, _xs: &[&ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
-        return vec![gy.clone(), gy.clone()];
+        vec![gy.clone(), gy.clone()]
     }
 }
 pub fn add<'c, N: Float>(x0: &'c Variable<'c, N>, x1: &'c Variable<'c, N>) -> Variable<'c, N> {
-    return Add.call(&[x0, x1]);
+    Add.call(&[x0, x1])
 }
 
 #[cfg(test)]

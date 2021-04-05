@@ -4,7 +4,7 @@ FROM rust:1.51
 #RUN apt-get update -y
 
 # Install development tools
-RUN rustup component add rustfmt
+RUN rustup component add rustfmt clippy
 
 # Install packages
 RUN cargo install cargo-edit
