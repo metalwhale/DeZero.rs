@@ -1,6 +1,9 @@
 use ndarray::{Array, ArrayD, Dimension};
 use num_traits::Float;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
 
 struct VariableInternal<'c, N: Float> {
     data: ArrayD<N>,
@@ -27,19 +30,19 @@ impl<'c, N: Float> Variable<'c, N> {
         }
     }
 
-    fn data(&self) -> ArrayD<N> {
-        self.internal.borrow().data.clone()
+    fn data(&self) -> Ref<ArrayD<N>> {
+        Ref::map(self.internal.borrow(), |i| &i.data)
     }
 
-    fn grad(&self) -> Option<ArrayD<N>> {
-        self.internal.borrow().grad.clone()
+    fn grad(&self) -> Ref<Option<ArrayD<N>>> {
+        Ref::map(self.internal.borrow(), |i| &i.grad)
     }
 
     pub fn backward(&self) {
         let mut inputs = vec![Rc::clone(&self.internal)];
-        let mut gxs = vec![match self.grad() {
-            Some(g) => g,
-            None => ArrayD::ones(self.internal.borrow().data.raw_dim()),
+        let mut gxs = vec![match self.grad().as_ref() {
+            Some(g) => g.clone(),
+            None => ArrayD::ones(self.data().raw_dim()),
         }];
         let mut calcs = vec![];
         loop {
@@ -54,7 +57,7 @@ impl<'c, N: Float> Variable<'c, N> {
                 gxs = c.function.backward(
                     &inputs
                         .iter()
-                        .map(|i| i.borrow().data.clone())
+                        .map(|i| Ref::map(i.borrow(), |i| &i.data))
                         .collect::<Vec<_>>(),
                     &gy,
                 );
@@ -80,8 +83,8 @@ trait Function<N: Float> {
         output
     }
 
-    fn forward(&self, xs: &[ArrayD<N>]) -> ArrayD<N>;
-    fn backward(&self, xs: &[ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>>;
+    fn forward(&self, xs: &[Ref<ArrayD<N>>]) -> ArrayD<N>;
+    fn backward(&self, xs: &[Ref<ArrayD<N>>], gy: &ArrayD<N>) -> Vec<ArrayD<N>>;
 }
 
 struct Calculation<'c, N: Float> {
@@ -91,11 +94,11 @@ struct Calculation<'c, N: Float> {
 
 struct Square;
 impl<N: Float> Function<N> for Square {
-    fn forward(&self, xs: &[ArrayD<N>]) -> ArrayD<N> {
+    fn forward(&self, xs: &[Ref<ArrayD<N>>]) -> ArrayD<N> {
         xs[0].mapv(|n| n.powi(2))
     }
 
-    fn backward(&self, xs: &[ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
+    fn backward(&self, xs: &[Ref<ArrayD<N>>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
         let x = &xs[0];
         let two = N::from(2).unwrap();
         let gx = x.mapv(|n| two * n) * gy;
@@ -108,11 +111,11 @@ pub fn square<'c, N: Float>(x: &Variable<'c, N>) -> Variable<'c, N> {
 
 struct Add;
 impl<N: Float> Function<N> for Add {
-    fn forward(&self, xs: &[ArrayD<N>]) -> ArrayD<N> {
-        &xs[0] + &xs[1]
+    fn forward(&self, xs: &[Ref<ArrayD<N>>]) -> ArrayD<N> {
+        &(*xs[0]) + &(*xs[1])
     }
 
-    fn backward(&self, _xs: &[ArrayD<N>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
+    fn backward(&self, _xs: &[Ref<ArrayD<N>>], gy: &ArrayD<N>) -> Vec<ArrayD<N>> {
         vec![gy.clone(), gy.clone()]
     }
 }
@@ -132,7 +135,7 @@ mod tests {
         let z = add(&square(&x), &square(&y));
         z.backward();
         println!("{}", z.data());
-        println!("{}", x.grad().unwrap());
-        println!("{}", y.grad().unwrap());
+        println!("{}", x.grad().as_ref().unwrap());
+        println!("{}", y.grad().as_ref().unwrap());
     }
 }
